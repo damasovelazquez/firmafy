@@ -136,6 +136,7 @@ class Firmafy_WooCommerce {
 			),
 		);
 
+		//TODO: Revisar esto porque me está facturando cosas que no debería (pedidos recurrentes).
 		// Conditional in subcriptions not send recurrent orders to firmafy.
 		if ( class_exists( 'WC_Subscriptions' ) && wcs_order_contains_subscription( $order_id ) ) {
 			$subscriptions = wcs_get_subscriptions_for_order( $order_id );
