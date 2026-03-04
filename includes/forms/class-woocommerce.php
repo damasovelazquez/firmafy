@@ -1,4 +1,5 @@
 <?php
+
 /**
  * WooCommerce Wrapper
  *
@@ -136,31 +137,26 @@ class Firmafy_WooCommerce {
 			),
 		);
 
-		//TODO: Revisar esto porque me está facturando cosas que no debería (pedidos recurrentes).
-		// Conditional in subcriptions not send recurrent orders to firmafy.
-		error_log( '[FIRMAFY DEBUG] Procesando pedido ID: ' . $order_id );
-		
-		if ( class_exists( 'WC_Subscriptions' ) && wcs_order_contains_subscription( $order_id ) ) {
-			error_log( '[FIRMAFY DEBUG] El pedido ' . $order_id . ' contiene suscripción' );
-			
-			$subscriptions = wcs_get_subscriptions_for_order( $order_id );
-			error_log( '[FIRMAFY DEBUG] Número de suscripciones encontradas: ' . count( $subscriptions ) );
-			
-			if ( ! empty( $subscriptions ) ) {
-				foreach ( $subscriptions as $subscription ) {
-					$parent_order_id = $subscription->get_parent_id();
-					error_log( '[FIRMAFY DEBUG] Suscripción ID: ' . $subscription->get_id() . ' | Parent Order ID: ' . $parent_order_id . ' | Current Order ID: ' . $order_id );
-
-					if ( $parent_order_id !== $order_id ) {
-						error_log( '[FIRMAFY DEBUG] DETENIDO - Es una renovación de suscripción. No se procesa en Firmafy.' );
-						return; // Do not process this order, it is a subscription renewal.
-					} else {
-						error_log( '[FIRMAFY DEBUG] Es el pedido padre de la suscripción. Se procesa en Firmafy.' );
-					}
-				}
+		if ( function_exists( 'wcs_get_subscriptions_for_order' ) ) {
+			$subscriptions = wcs_get_subscriptions_for_order( $order_id, array(
+				'order_type' => array( 'parent', 'renewal' )
+			) );
+			if ( !empty( $subscriptions ) ) {
+				$subscription = reset( $subscriptions );
+				if ($subscription->get_completed_payment_count()>1)
+				return;
 			}
-		} else {
-			error_log( '[FIRMAFY DEBUG] El pedido ' . $order_id . ' NO contiene suscripción o WC_Subscriptions no está activo' );
+		}
+		
+		// Conditional in subcriptions not send recurrent orders to firmafy.
+		if ( class_exists( 'WC_Subscriptions' ) && wcs_order_contains_renewal( $order_id ) ) {
+			if (function_exists( 'wcs_get_subscriptions_for_order' ) && 
+				! wcs_order_contains_renewal( $order_id ) &&
+				! empty( wcs_get_subscriptions_for_order( $order_id, array( 'order_type' => 'parent' ) ) )
+			)
+			{
+				return; // Do not process this order, it is a subscription renewal.
+			}
 		}
 
 		$woocommerce_mode = isset( $this->settings['woocommerce_mode'] ) ? $this->settings['woocommerce_mode'] : 'all';
